@@ -67,6 +67,12 @@ make clean
 - Toutes les commandes systemes standards : ls, pwd, date, etc.
 
 ```
+## Aperçu
+
+![Vortish shell](screenshots/vortish.png)
+
+![Vortish shell](screenshots/test.png)
+
 
 ## Ressources pour approfondir / Lecture
 
