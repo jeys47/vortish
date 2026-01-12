@@ -13,7 +13,7 @@ Vortish est un shell minimaliste développé en C pour les systèmes Ubuntu. Con
 - **Gestion des erreurs** basique
 
 ## Architecture du projet
-
+```
 vortish/
 ├── Makefile                    # Script de compilation
 ├── src/                        # Code source
@@ -23,9 +23,9 @@ vortish/
 │   ├── shell.c                # Logique principale du shell
 │   └── shell.h                # Header pour le shell
 └── README.md                  # Documentation du projet
-
+```
 ## Architecture technique
-
+```
 ┌─────────────────────────────────────────────┐
 │      Espace Utilisateur (User Space)       │
 ├─────────────────────────────────────────────┤
@@ -43,7 +43,7 @@ vortish/
 │  │ Processus    │  │  Fichiers          │   │
 │  └──────────────┘  └────────────────────┘   │
 └─────────────────────────────────────────────┘
-
+```
 ## Compilation
 
 ```bash
