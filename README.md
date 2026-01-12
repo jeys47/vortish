@@ -85,12 +85,21 @@ make clean
 ![Vortish shell](screenshots/test.png)
 
 
-## Ressources pour approfondir / Lecture
+## Références & Ressources
 
-- "The Linux Programming Interface" - Michael Kerrisk
-- "Advanced Programming in the UNIX Environment" - Stevens & Rago
-- Code source de bash - Voir comment un shell réel est structuré
+Ces livres et ressources ont inspiré et soutenu le développement de **Vortish** :
 
+- **[The C Programming Language](https://fr.wikipedia.org/wiki/The_C_Programming_Language)**  
+  *Brian W. Kernighan & Dennis M. Ritchie*
 
+- **[Advanced Programming in the UNIX Environment](https://www.apuebook.com/)**  
+  *W. Richard Stevens*
 
+- **[Operating Systems: Three Easy Pieces](https://pages.cs.wisc.edu/~remzi/OSTEP/)**  
+  *Remzi & Andrea Arpaci-Dusseau*
 
+- **[Linux Kernel Development](https://www.oreilly.com/library/view/linux-kernel-development/9780672329463/)**  
+  *Robert Love*
+
+- **[The Linux Programming Interface](http://man7.org/tlpi/)**  
+  *Michael Kerrisk*
