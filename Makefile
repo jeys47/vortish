@@ -24,6 +24,7 @@ $(OBJDIR):
 
 clean:
 	rm -rf $(OBJDIR) $(TARGET)
+	rm -f .vortish_history # supprimer aussi l'historique
 
 run: $(TARGET)
 	./$(TARGET)
@@ -31,7 +32,7 @@ run: $(TARGET)
 debug: CFLAGS += -g
 debug: clean all
 
-# Installation (optionnelle)
+# Installation 
 install: $(TARGET)
 	cp $(TARGET) /usr/local/bin/
 

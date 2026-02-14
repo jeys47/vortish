@@ -22,6 +22,7 @@ Vortish est un shell minimaliste développé en C pour les systèmes Ubuntu. Con
 - **Commandes internes** : help, exit, clear, vortish
 - **Exécution des commandes système** (ls, pwd, etc.)
 - **Gestion des erreurs** basique
+- **Historique des commandes** avec persistance et rappel (!n, !!, history)
 
 ## Architecture du projet
 ```
@@ -34,6 +35,7 @@ vortish/
 │   ├── shell.c                # Logique principale du shell
 │   └── shell.h                # Header pour le shell
 └── README.md                  # Documentation du projet
+└── .vortish_history           # Fichier d'historique (créé à l'exécution)
 ```
 ## Architecture technique
 ```
@@ -55,6 +57,32 @@ vortish/
 │  └──────────────┘  └────────────────────┘   │
 └─────────────────────────────────────────────┘
 ```
+
+## Gestion de l'Historique
+
+Vortish intègre un système d'historique persistant qui enregistre toutes les commandes tapées par l'utilisateur.
+
+### Commandes liées à l'historique
+
+| Commande | Description                                                      |
+|----------|------------------------------------------------------------------|
+| `history`| Affiche la liste des commandes précédentes avec leurs numéros    |
+| `!!`     | Exécute la dernière commande                                     |
+| `!n`     | Exécute la commande numéro `n` (ex: `!5` exécute la 5e commande) |
+
+### Persistance
+
+- L'historique est automatiquement **chargé** au démarrage depuis le fichier `.vortish_history`
+- Il est **sauvegardé** à la sortie du shell (commande `exit`)
+- Le fichier d'historique est **effacé** avec `make clean`
+
+### Implémentation technique
+
+- Stockage en mémoire via un **tableau circulaire** de 100 entrées maximum
+- Allocation dynamique avec `malloc()` pour chaque commande
+- Évite les doublons consécutifs
+- Ignore les commandes d'historique elles-mêmes (`history`, `!n`, `!!`) pour ne pas polluer
+
 ## Compilation
 
 ```bash
@@ -64,20 +92,39 @@ make
 # Compiler et exécuter
 make run
 
-# Nettoyer les fichiers objets
+# Nettoyer les fichiers objets et le fichier d'historique
 make clean
 
 # Utilisation
 ./vortish
-
-# Commandes disponibles
-- help
-- exit
-- clear
-- vortish
-- Toutes les commandes systemes standards : ls, pwd, date, etc.
-
 ```
+
+## Commandes disponibles
+
+| Commande               | Description                                          |
+|------------------------|------------------------------------------------------|
+| `help`                 | Affiche l'aide                                       |
+| `exit`                 | Quitte le shell                                      |
+| `clear`                | Efface l'écran                                       |
+| `vortish`              | Affiche le logo                                      |
+| `history`              | Affiche l'historique des commandes                   |
+| `!!`                   | Exécute la dernière commande                         |
+| `!n`                   | Exécute la commande numéro n                         |
+| `ls`, `pwd`, `date`... | Toutes les commandes système standards               |
+
+## Évolution du projet
+
+### Version 1.0 (Fonctionnalités de base)
+- Structure du shell
+- Commandes internes simples
+- Exécution de commandes système
+
+### Version 1.1 (Ajout de l'historique)
+- Historique persistant des commandes
+- Rappel des commandes avec !n et !!
+- Sauvegarde automatique dans fichier
+- Chargement automatique au démarrage
+
 ## Aperçu
 
 ![Vortish shell](screenshots/vortish.png)
