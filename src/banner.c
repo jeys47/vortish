@@ -15,7 +15,7 @@ void display_banner() {
     
     printf("\033[1;33m"); // Couleur jaune
     printf("══════════════════════════════════════════════════════\n");
-    printf("  Shell Éducatif - Projet Fun - Version 1.0\n");
+    printf("  Shell Éducatif - Projet Fun - Version 1.2\n");
     printf("  Architecture : Linux/Unix | C | Status : running...\n");
 
     printf("  Tapez 'exit' pour quitter, 'help' pour l'aide\n");
