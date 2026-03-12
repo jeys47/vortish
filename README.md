@@ -148,7 +148,7 @@ make clean
 | `!!`                   | Exécute la dernière commande                         |
 | `!n`                   | Exécute la commande numéro n                         |
 | `ls`, `pwd`, `date`... | Toutes les commandes système standards               |
-| `cmd1` | `cmd2`        | Chaîne deux commandes avec un pipe                    |
+| `cmd1 \| cmd2`       | Chaîne deux commandes avec un pipe                    |
 
 ## Évolution du projet
 
