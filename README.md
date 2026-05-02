@@ -148,14 +148,14 @@ ls -la | grep ".c" > fichiers_c.txt
 sort < input.txt > sorted.txt
 ```
 
-|Étape	      |Description
-|-----------------------------------------------------------------|
-|Parsing	    |La commande est analysée pour trouver les symboles >, >>, < |
-|Extraction	  |Les noms de fichiers sont extraits des symboles |
-|Fork	        |Un processus enfant est créé |
-|Ouverture	  |Les fichiers sont ouverts avec open() |
-|Duplication	|Les descripteurs sont dupliqués avec dup2() |
-|Exécution	  |La commande est exécutée avec execvp() |
+| Étape	      |Description                                                 |
+|-------------|------------------------------------------------------------|
+| Parsing	    |La commande est analysée pour trouver les symboles >, >>, < |
+| Extraction	|Les noms de fichiers sont extraits des symboles             |
+| Fork	      |Un processus enfant est créé                                |
+| Ouverture	  |Les fichiers sont ouverts avec open()                       |
+| Duplication	|Les descripteurs sont dupliqués avec dup2()                 |
+| Exécution	  |La commande est exécutée avec execvp()                      |
 
 Nouveaux appels système utilisés
 
