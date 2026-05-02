@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <sys/types.h>
+#include <fcntl.h>      // Pour open(), O_RDONLY, etc.
 #include "shell.h"
 
 #define HISTORY_FILE ".vortish_history"
@@ -12,7 +13,8 @@
 char *history[MAX_HISTORY];
 int history_count = 0;
 
-// Ajouter une commande à l'historique
+// ==================== HISTORIQUE ====================
+
 void add_to_history(const char *command) {
     if (strlen(command) == 0) return;
     
@@ -67,121 +69,6 @@ void load_history_from_file() {
     fclose(file);
 }
 
-// Compter le nombre de pipes dans la commande
-int count_pipes(char *command) {
-    int count = 0;
-    for (int i = 0; command[i] != '\0'; i++) {
-        if (command[i] == '|') {
-            count++;
-        }
-    }
-    return count;
-}
-
-// Découper la commande en segments séparés par des pipes
-void parse_pipes(char *command, char **pipe_commands) {
-    int i = 0;
-    pipe_commands[i] = strtok(command, "|");
-    while (pipe_commands[i] != NULL && i < MAX_PIPES - 1) {
-        i++;
-        pipe_commands[i] = strtok(NULL, "|");
-    }
-    pipe_commands[i] = NULL;
-}
-
-// Exécuter une chaîne de pipes
-void execute_pipe_chain(char **commands, int count) {
-    int i;
-    int pipefd[2];
-    int input_fd = STDIN_FILENO;  // Descripteur d'entrée pour la première commande
-    pid_t pid;
-    
-    for (i = 0; i < count; i++) {
-        // Créer un pipe pour la communication (sauf pour la dernière commande)
-        if (i < count - 1) {
-            if (pipe(pipefd) == -1) {
-                perror("pipe");
-                return;
-            }
-        }
-        
-        pid = fork();
-        if (pid == 0) {
-            // Processus enfant
-            
-            // Rediriger l'entrée depuis le pipe précédent
-            if (input_fd != STDIN_FILENO) {
-                dup2(input_fd, STDIN_FILENO);
-                close(input_fd);
-            }
-            
-            // Rediriger la sortie vers le pipe suivant (sauf pour la dernière)
-            if (i < count - 1) {
-                dup2(pipefd[1], STDOUT_FILENO);
-                close(pipefd[1]);
-            }
-            
-            // Fermer les descripteurs inutilisés
-            if (i < count - 1) {
-                close(pipefd[0]);
-            }
-            
-            // Préparer les arguments pour la commande
-            char *args[MAX_ARGS];
-            char *token;
-            int j = 0;
-            char cmd_copy[MAX_COMMAND_LENGTH];
-            
-            strcpy(cmd_copy, commands[i]);
-            token = strtok(cmd_copy, " \t");
-            while (token != NULL && j < MAX_ARGS - 1) {
-                // Enlever les espaces en début et fin
-                while (*token == ' ' || *token == '\t') token++;
-                if (strlen(token) > 0) {
-                    args[j] = token;
-                    j++;
-                }
-                token = strtok(NULL, " \t");
-            }
-            args[j] = NULL;
-            
-            // Exécuter la commande
-            execvp(args[0], args);
-            
-            // Si on arrive ici, c'est que execvp a échoué
-            printf("\033[1;31mCommande non trouvée : %s\033[0m\n", args[0]);
-            exit(1);
-        }
-        else if (pid > 0) {
-            // Processus parent
-            
-            // Attendre que l'enfant termine (optionnel - on peut attendre à la fin)
-            // wait(NULL);
-            
-            // Fermer les descripteurs du parent
-            if (input_fd != STDIN_FILENO) {
-                close(input_fd);
-            }
-            
-            if (i < count - 1) {
-                close(pipefd[1]);  // Fermer l'écriture du parent
-                input_fd = pipefd[0];  // Lire depuis ce pipe pour la prochaine commande
-            }
-        }
-        else {
-            // Erreur de fork
-            printf("\033[1;31mErreur lors du fork\033[0m\n");
-            return;
-        }
-    }
-    
-    // Attendre que tous les enfants terminent
-    for (i = 0; i < count; i++) {
-        wait(NULL);
-    }
-}
-
-// Exécuter la commande historique par numéro
 void execute_history_command(int num) {
     if (num < 1 || num > history_count) {
         printf("\033[1;31mErreur : numéro d'historique invalide\033[0m\n");
@@ -192,58 +79,254 @@ void execute_history_command(int num) {
     execute_command(cmd);
 }
 
-// Fonction principale d'exécution des commandes
+// ==================== PIPES ====================
+
+int count_pipes(char *command) {
+    int count = 0;
+    for (int i = 0; command[i] != '\0'; i++) {
+        if (command[i] == '|') {
+            count++;
+        }
+    }
+    return count;
+}
+
+void parse_pipes(char *command, char **pipe_commands) {
+    int i = 0;
+    pipe_commands[i] = strtok(command, "|");
+    while (pipe_commands[i] != NULL && i < MAX_PIPES - 1) {
+        i++;
+        pipe_commands[i] = strtok(NULL, "|");
+    }
+    pipe_commands[i] = NULL;
+}
+
+void execute_pipe_chain(char **commands, int count) {
+    int i;
+    int pipefd[2];
+    int input_fd = STDIN_FILENO;
+    pid_t pid;
+    
+    for (i = 0; i < count; i++) {
+        if (i < count - 1) {
+            if (pipe(pipefd) == -1) {
+                perror("pipe");
+                return;
+            }
+        }
+        
+        pid = fork();
+        if (pid == 0) {
+            if (input_fd != STDIN_FILENO) {
+                dup2(input_fd, STDIN_FILENO);
+                close(input_fd);
+            }
+            
+            if (i < count - 1) {
+                dup2(pipefd[1], STDOUT_FILENO);
+                close(pipefd[1]);
+            }
+            
+            if (i < count - 1) {
+                close(pipefd[0]);
+            }
+            
+            char *args[MAX_ARGS];
+            char *token;
+            int j = 0;
+            char cmd_copy[MAX_COMMAND_LENGTH];
+            
+            strcpy(cmd_copy, commands[i]);
+            token = strtok(cmd_copy, " \t");
+            while (token != NULL && j < MAX_ARGS - 1) {
+                while (*token == ' ' || *token == '\t') token++;
+                if (strlen(token) > 0) {
+                    args[j] = token;
+                    j++;
+                }
+                token = strtok(NULL, " \t");
+            }
+            args[j] = NULL;
+            
+            execvp(args[0], args);
+            printf("\033[1;31mCommande non trouvée : %s\033[0m\n", args[0]);
+            exit(1);
+        }
+        else if (pid > 0) {
+            if (input_fd != STDIN_FILENO) {
+                close(input_fd);
+            }
+            
+            if (i < count - 1) {
+                close(pipefd[1]);
+                input_fd = pipefd[0];
+            }
+        }
+        else {
+            printf("\033[1;31mErreur lors du fork\033[0m\n");
+            return;
+        }
+    }
+    
+    for (i = 0; i < count; i++) {
+        wait(NULL);
+    }
+}
+
+// ==================== REDIRECTIONS ====================
+
+// Vérifie si la commande contient des redirections
+int has_redirections(char *command) {
+    for (int i = 0; command[i] != '\0'; i++) {
+        if (command[i] == '>' || command[i] == '<') {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+// Extrait les fichiers et arguments des redirections
+void parse_redirections(char *command, char **args, 
+                        char **input_file, char **output_file, int *append) {
+    *input_file = NULL;
+    *output_file = NULL;
+    *append = 0;
+    
+    char *token;
+    char copy[MAX_COMMAND_LENGTH];
+    strcpy(copy, command);
+    
+    int i = 0;
+    token = strtok(copy, " \t");
+    
+    while (token != NULL && i < MAX_ARGS - 1) {
+        if (strcmp(token, "<") == 0) {
+            // Redirection d'entrée
+            token = strtok(NULL, " \t");
+            if (token != NULL) {
+                *input_file = strdup(token);
+            }
+        }
+        else if (strcmp(token, ">") == 0) {
+            // Redirection de sortie (écrasement)
+            token = strtok(NULL, " \t");
+            if (token != NULL) {
+                *output_file = strdup(token);
+                *append = 0;
+            }
+        }
+        else if (strcmp(token, ">>") == 0) {
+            // Redirection de sortie (ajout)
+            token = strtok(NULL, " \t");
+            if (token != NULL) {
+                *output_file = strdup(token);
+                *append = 1;
+            }
+        }
+        else {
+            // Argument normal de la commande
+            args[i] = token;
+            i++;
+        }
+        token = strtok(NULL, " \t");
+    }
+    args[i] = NULL;
+}
+
+// Exécute une commande avec les redirections
+int handle_redirections(char **args, char *input_file, 
+                        char *output_file, int append) {
+    pid_t pid = fork();
+    
+    if (pid == 0) {
+        // Gérer la redirection d'entrée (<)
+        if (input_file != NULL) {
+            int fd = open(input_file, O_RDONLY);
+            if (fd == -1) {
+                printf("\033[1;31mErreur: Impossible d'ouvrir %s\033[0m\n", input_file);
+                exit(1);
+            }
+            dup2(fd, STDIN_FILENO);
+            close(fd);
+        }
+        
+        // Gérer la redirection de sortie (> ou >>)
+        if (output_file != NULL) {
+            int flags = O_WRONLY | O_CREAT;
+            if (append) {
+                flags |= O_APPEND;
+            } else {
+                flags |= O_TRUNC;
+            }
+            int fd = open(output_file, flags, 0644);
+            if (fd == -1) {
+                printf("\033[1;31mErreur: Impossible d'écrire dans %s\033[0m\n", output_file);
+                exit(1);
+            }
+            dup2(fd, STDOUT_FILENO);
+            close(fd);
+        }
+        
+        // Exécuter la commande
+        execvp(args[0], args);
+        printf("\033[1;31mCommande non trouvée : %s\033[0m\n", args[0]);
+        exit(1);
+    }
+    else if (pid > 0) {
+        int status;
+        wait(&status);
+        return status;
+    }
+    else {
+        printf("\033[1;31mErreur lors du fork\033[0m\n");
+        return -1;
+    }
+}
+
+// ==================== COMMANDES INTERNES ====================
+
+void show_help() {
+    printf("\n\033[1;32mCommandes disponibles :\033[0m\n");
+    printf("  \033[1;36mhelp\033[0m     - Afficher cette aide\n");
+    printf("  \033[1;36mhistory\033[0m  - Afficher l'historique\n");
+    printf("  \033[1;36m!N\033[0m        - Exécuter commande N de l'historique\n");
+    printf("  \033[1;36m!!\033[0m        - Exécuter la dernière commande\n");
+    printf("  \033[1;36mexit\033[0m     - Quitter\n");
+    printf("  \033[1;36mclear\033[0m    - Effacer l'écran\n");
+    printf("  \033[1;36mvortish\033[0m  - Afficher la bannière\n");
+    
+    printf("\n\033[1;33mPipes :\033[0m\n");
+    printf("  \033[1;36mcommande1 | commande2\033[0m\n");
+    printf("  Exemple: \033[1;36mls -la | grep .c | wc -l\033[0m\n");
+    
+    printf("\n\033[1;33mRedirections :\033[0m\n");
+    printf("  \033[1;36mcommande > fichier\033[0m   - Écrire dans un fichier\n");
+    printf("  \033[1;36mcommande >> fichier\033[0m  - Ajouter à un fichier\n");
+    printf("  \033[1;36mcommande < fichier\033[0m   - Lire depuis un fichier\n");
+    printf("  Exemple: \033[1;36mls -la > liste.txt\033[0m\n");
+    printf("  Exemple: \033[1;36mwc -l < liste.txt\033[0m\n\n");
+}
+
+// ==================== EXÉCUTION PRINCIPALE ====================
+
 void execute_command(char *command) {
     // Ignorer les commandes vides
     if (strlen(command) == 0) return;
     
-    // Ajouter à l'historique
+    // Ajouter à l'historique (sauf commandes spéciales)
     if (strcmp(command, "history") != 0 && 
         strncmp(command, "!", 1) != 0) {
         add_to_history(command);
     }
     
-    // Vérifier s'il y a des pipes
-    int pipe_count = count_pipes(command);
-    
-    if (pipe_count > 0) {
-        // Gestion des commandes avec pipes
-        char *pipe_commands[MAX_PIPES];
-        char command_copy[MAX_COMMAND_LENGTH];
-        
-        strcpy(command_copy, command);
-        parse_pipes(command_copy, pipe_commands);
-        
-        // Compter le nombre réel de commandes
-        int cmd_count = 0;
-        while (pipe_commands[cmd_count] != NULL && cmd_count < MAX_PIPES) {
-            cmd_count++;
-        }
-        
-        if (cmd_count >= 2) {
-            execute_pipe_chain(pipe_commands, cmd_count);
-            return;
-        }
-    }
-    
-    // Gestion des commandes internes
+    // Commandes internes (avant pipes et redirections)
     if (strcmp(command, "exit") == 0) {
         save_history_to_file();
         printf("Au revoir ! 👋\n");
         exit(0);
     }
     else if (strcmp(command, "help") == 0) {
-        printf("\n\033[1;32mCommandes disponibles :\033[0m\n");
-        printf("  \033[1;36mhelp\033[0m     - Afficher cette aide\n");
-        printf("  \033[1;36mhistory\033[0m  - Afficher l'historique\n");
-        printf("  \033[1;36m!N\033[0m        - Exécuter commande N de l'historique\n");
-        printf("  \033[1;36m!!\033[0m        - Exécuter la dernière commande\n");
-        printf("  \033[1;36mexit\033[0m     - Quitter\n");
-        printf("  \033[1;36mclear\033[0m    - Effacer l'écran\n");
-        printf("  \033[1;36mvortish\033[0m  - Afficher la bannière\n");
-        printf("\n\033[1;33mNouveau ! Support des pipes :\033[0m\n");
-        printf("  \033[1;36mcommande1 | commande2\033[0m\n");
-        printf("  Exemple: \033[1;36mls -la | grep .c | wc -l\033[0m\n\n");
+        show_help();
         return;
     }
     else if (strcmp(command, "history") == 0) {
@@ -273,13 +356,54 @@ void execute_command(char *command) {
     }
     else if (strcmp(command, "vortish") == 0) {
         printf("\n\033[1;35m╔══════════════════════════════════╗\n");
-        printf("║        VORTISH SHELL v1.2       ║\n");
-        printf("║    (avec pipes et historique)   ║\n");
+        printf("║        VORTISH SHELL v1.3       ║\n");
+        printf("║   (pipes + historique + redirections) ║\n");
         printf("╚══════════════════════════════════╝\033[0m\n\n");
         return;
     }
     
-    // Commande simple (sans pipe)
+    // Vérifier les pipes d'abord
+    int pipe_count = count_pipes(command);
+    if (pipe_count > 0) {
+        char *pipe_commands[MAX_PIPES];
+        char command_copy[MAX_COMMAND_LENGTH];
+        
+        strcpy(command_copy, command);
+        parse_pipes(command_copy, pipe_commands);
+        
+        int cmd_count = 0;
+        while (pipe_commands[cmd_count] != NULL && cmd_count < MAX_PIPES) {
+            cmd_count++;
+        }
+        
+        if (cmd_count >= 2) {
+            execute_pipe_chain(pipe_commands, cmd_count);
+            return;
+        }
+    }
+    
+    // Vérifier les redirections
+    if (has_redirections(command)) {
+        char *args[MAX_ARGS];
+        char *input_file = NULL;
+        char *output_file = NULL;
+        int append = 0;
+        char command_copy[MAX_COMMAND_LENGTH];
+        
+        strcpy(command_copy, command);
+        parse_redirections(command_copy, args, &input_file, &output_file, &append);
+        
+        if (args[0] != NULL) {
+            handle_redirections(args, input_file, output_file, append);
+        }
+        
+        // Libérer la mémoire allouée
+        if (input_file) free(input_file);
+        if (output_file) free(output_file);
+        return;
+    }
+    
+    // Commande simple (sans pipe ni redirection)
     pid_t pid = fork();
     
     if (pid == 0) {

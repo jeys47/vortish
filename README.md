@@ -24,6 +24,7 @@ Vortish est un shell minimaliste développé en C pour les systèmes Ubuntu. Con
 - **Gestion des erreurs** basique
 - **Historique des commandes** avec persistance et rappel (!n, !!, history)
 - **Support des pipes (|)** pour chainer plusieurs commandes
+- **Support des redirections (>, >>, <) pour lire/ecrire dans les fichiers
 
 ## Architecture du projet
 ```
@@ -120,6 +121,50 @@ ls -lt | head -5
 - Les commandes internes (cd, exit, etc.) ne fonctionnent pas dans les pipes
 - Pas de gestion des erreurs avancée (pipe cassé, etc.)
 
+### Support des redirections (>, >>, <)
+Vortish supporte les redirections, permettant de lire et ecrire dans des fichiers.
+
+#### Types de redirections
+Symbole	Nom	Description
+>	Sortie (écrasement)	Redirige la sortie d'une commande vers un fichier (écrase le contenu existant)
+>>	Sortie (ajout)	Redirige la sortie d'une commande vers un fichier (ajoute à la fin)
+<	Entrée	Utilise le contenu d'un fichier comme entrée d'une commande
+
+#### Exemples utilisation
+```bash
+# Sauvegarder la liste des fichiers
+ls -la > liste.txt
+
+# Ajouter une nouvelle ligne
+echo "Nouveau fichier" >> liste.txt
+
+# Compter les mots d'un fichier
+wc -l < liste.txt
+
+# Combiner redirection et pipe
+ls -la | grep ".c" > fichiers_c.txt
+
+# Lire depuis un fichier et écrire dans un autre
+sort < input.txt > sorted.txt
+```
+
+|Étape	      |Description
+|-----------------------------------------------------------------|
+|Parsing	    |La commande est analysée pour trouver les symboles >, >>, < |
+|Extraction	  |Les noms de fichiers sont extraits des symboles |
+|Fork	        |Un processus enfant est créé |
+|Ouverture	  |Les fichiers sont ouverts avec open() |
+|Duplication	|Les descripteurs sont dupliqués avec dup2() |
+|Exécution	  |La commande est exécutée avec execvp() |
+
+Nouveaux appels système utilisés
+
+open()	: Ouvre un fichier et retourne un descripteur
+O_CREAT	: Crée le fichier s'il n'existe pas
+O_TRUNC	: Vide le fichier avant d'écrire
+O_APPEND:	Écrit à la fin du fichier
+dup2()	: Duplique un descripteur de fichier
+
 ## Compilation
 
 ```bash
@@ -149,6 +194,10 @@ make clean
 | `!n`                   | Exécute la commande numéro n                         |
 | `ls`, `pwd`, `date`... | Toutes les commandes système standards               |
 | `cmd1 \| cmd2`       | Chaîne deux commandes avec un pipe                    |
+| `cmd > fichier`      | Redirige la sortie vers un fichier (ecrasement)|
+| `cmd >> fichier`     | Redirige la sortie vers un fichier (ajout)|
+| `cmd < fichier`      | Redirige l'entree depuis un fichier|
+
 
 ## Évolution du projet
 
@@ -168,11 +217,15 @@ make clean
 - Communication inter-processus
 - Gestion de multiples processus fils
 
-### Version 1.3 (A venir)
-- Redirections (>, <, >>)
-- Commandes en arriere-plan (&)
-- Gestion des signaux (Ctrl+C)
+### Version 1.3 Redirections
+- Support des Redirections (>, <, >>)
+- Lecture et ecriture dans des fichiers
+- Integration avec les pipes existants
 
+### Version 1.4 - (A venir)
+- Commandes en arriere-plan (&)
+- Gestion des signaux (`Ctrl+C`, `Ctrl+Z`)
+- Variables d'environnement ($PATH. $HOME)
 
 ## Exemples d'utilisation
 
@@ -194,6 +247,14 @@ vortish@ubuntu:~$ history
 # Utiliser les pipes
 vortish@ubuntu:~$ ls -la | grep ".c"
 vortish@ubuntu:~$ ps aux | grep bash | wc -l
+
+# Utilisation des redirections
+vortish@ubuntu:~$ ls -la > sauvegarde.txt
+vortish@ubuntu:~$ echo "Hello Vortish" >> sauvegarde.txt
+vortish@ubuntu:~$ wc -l < sauvegarde.txt
+
+# Combiner pipes et redirections
+vortish@ubuntu:~$ ls -la | grep ".c" > fichiers_c.txt
 
 # Réexécuter une commande
 vortish@ubuntu:~$ !1    # Réexécute 'ls -la'
