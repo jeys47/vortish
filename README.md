@@ -159,11 +159,11 @@ sort < input.txt > sorted.txt
 
 Nouveaux appels système utilisés
 
-open()	: Ouvre un fichier et retourne un descripteur
-O_CREAT	: Crée le fichier s'il n'existe pas
-O_TRUNC	: Vide le fichier avant d'écrire
-O_APPEND:	Écrit à la fin du fichier
-dup2()	: Duplique un descripteur de fichier
+- open()	: Ouvre un fichier et retourne un descripteur
+- O_CREAT	: Crée le fichier s'il n'existe pas
+- O_TRUNC	: Vide le fichier avant d'écrire
+- O_APPEND:	Écrit à la fin du fichier
+- dup2()	: Duplique un descripteur de fichier
 
 ## Compilation
 
